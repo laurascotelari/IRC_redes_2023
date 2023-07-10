@@ -1,5 +1,5 @@
 # Trabalho de Redes - Internet Relay Chat
-##SSC0142-Redes de Computadores 
+## SSC0142-Redes de Computadores 
 |        Nome                   |    NUSP   |           E-mail           |
 |:-----------------------------:|:---------:|:---------------------------:|
 |     Isadora                   |  N USP    |    email usp               |
