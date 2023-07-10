@@ -25,7 +25,7 @@ int initializeChat(char* server_IP_addr);
 
 /*Funcao chat:
 *   Com a conexão já estabelecida no client_socket, a função chat realiza a troca de mensagem
-*   entre o servidor e o cliente através das primirtivas send() e receive
+*   entre o servidor e o cliente através das primitivas send() e receive()
 *
 * Parâmetros:
 *   int client_socket : socket com a conexão já estabelecida
