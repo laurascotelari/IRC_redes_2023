@@ -1,5 +1,5 @@
 # Trabalho de Redes - Internet Relay Chat
-Redes de Computadores (2023) 
+##SSC0142-Redes de Computadores 
 |        Nome                   |    NUSP   |           E-mail           |
 |:-----------------------------:|:---------:|:---------------------------:|
 |     Isadora                   |  N USP    |    email usp               |
