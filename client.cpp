@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <cstring>
 #include <string>
-
 #include <cstdlib>  // usar rand() e srand()
 #include <ctime>  
 
@@ -12,22 +11,40 @@ using namespace std;
 
 #define MAX_MSG 4096
 
-string generateNickname(string nickname, int flag){
-    srand(time(0));
-    
-    //gera um nickname aleatorio: cliente + numero aleatorio
-    if(flag){
-        return nickname;
-    }else{
-        //pegando um numero aleatrio entre 0 e 100
-        int randNum = rand()%100;
+/*Funcao initializeChat:
+*   Recebe o endereco IP do servidor pelo argv[1], cria um socket e estabelece a conexao
+*   com o servidor na porta 8080
+*
+* Parâmetros:
+*   char* server_IP_addr : IP do servidor
+*
+* Retorno:
+*   socket do cliente
+*/
+int initializeChat(char* server_IP_addr);
 
-        string newNickname;
-        newNickname = "cliente" + to_string(randNum);
+/*Funcao chat:
+*   Com a conexão já estabelecida no client_socket, a função chat realiza a troca de mensagem
+*   entre o servidor e o cliente através das primirtivas send() e receive
+*
+* Parâmetros:
+*   int client_socket : socket com a conexão já estabelecida
+*/
+void chat(int client_socket);
 
-        return newNickname;
-    }
-}
+/*Funcao generateNickname:
+*   flag = 0: Gera o apelido do usuário através da junção da string cliente + um número
+*   aleatório entre 0 e 100. 
+*   flag = 1: Apenas retorna o apelido digitado pelo usuário. 
+*
+* Parâmetros:
+*   int flag : controla o tipo de apelido
+*
+* Retorno:
+*   String de apelido gerada
+*/
+string generateNickname(string nickname, int flag);
+
 
 int main(int argc, char **argv) {
 
@@ -36,7 +53,39 @@ int main(int argc, char **argv) {
 		cout << "use: ./client <IPaddress>";
         return -1;
     }
+    
+    //controla se o usuario ja mandou o comando /connect
+    int flagConnect = false;
 
+    cout << "Comandos importantes:\n";
+    cout << "\t/connect : Estabelece conexão com o servidor\n";
+    cout << "\t/quit    : Cliente fecha a conexão e fecha a aplicação\n";
+    cout << "\t/ping    : Servidor retorna pong assim que receber a mensagem\n";
+
+    string mensagemLida;
+
+    //enquanto o usuario nao digitar /connect, ele nao pode 
+    //prosseguir para o chat
+    do{
+        cout << "\nDigite /connect para começar: ";
+        getline(cin, mensagemLida);
+
+    }while(mensagemLida != "/connect");
+
+    cout << "-------- Iniciando Chat --------\n";
+
+    //estabelece a conexao e retorna o socket criado
+    int client_socket = initializeChat(argv[1]);
+    //troca de mensagens com o servidor
+    chat(client_socket);
+    //fecha o socket
+    close(client_socket);
+
+    return 0;
+}
+
+
+int initializeChat(char* server_IP_addr){
     /** 
      * Cria um socket para o cliente
      * // AF_INET diz que vamos usar IPv4
@@ -55,7 +104,7 @@ int main(int argc, char **argv) {
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET; // IPv4
     server_address.sin_port = htons(8080); // Porta 8080
-    inet_pton(AF_INET, argv[1], &server_address.sin_addr); // Associação com IP do servidor
+    inet_pton(AF_INET, server_IP_addr, &server_address.sin_addr); // Associação com IP do servidor
 
     /**
      * Vamos agora de fato nos conectar ao servidor. Passamos os nosso socket que criamos (veja que não
@@ -73,6 +122,11 @@ int main(int argc, char **argv) {
      */
     cout << "Você está conectado ao servidor!" << endl;
 
+    return client_socket;
+}
+
+
+void chat(int client_socket){
     /**
      * Com a conexão estabelecida, 3-way handshake do TCP e tudo mais, podemos começar a troca de mensagens
      * através do uso das primitivas de socket 'send' e 'recv'.
@@ -91,22 +145,6 @@ int main(int argc, char **argv) {
     //  * flag 1: recebe o nickname escolhido usando /nickname (ainda nao implementado) 
     string nickname;
     nickname = generateNickname(nickname, 0);
-
-    //controla se o usuario ja mandou o comando /connect
-    int flagConnect = false;
-
-    cout << "Comandos importantes:\n";
-    cout << "\t/connect : Estabelece conexão com o servidor\n";
-    cout << "\t/quit    : Cliente fecha a conexão e fecha a aplicação\n";
-    cout << "\t/ping    : Servidor retorna pong assim que receber a mensagem\n";
-
-    do{
-        cout << "\nDigite /connect para começar: ";
-        getline(cin, mensagemLida);
-
-    }while(mensagemLida != "/connect");
-
-    cout << "-------- Iniciando Chat --------\n";
 
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
@@ -131,9 +169,22 @@ int main(int argc, char **argv) {
         // Limpar buffer de recepção para se preparar para próxima mensagem
         memset(buffer, 0, sizeof(buffer));
     }
+}
 
-    // Fechar o socket
-    close(client_socket);
 
-    return 0;
+string generateNickname(string nickname, int flag){
+    srand(time(0));
+    
+    //gera um nickname aleatorio: cliente + numero aleatorio
+    if(flag){
+        return nickname;
+    }else{
+        //pegando um numero aleatrio entre 0 e 100
+        int randNum = rand()%100;
+
+        string newNickname;
+        newNickname = "cliente" + to_string(randNum);
+
+        return newNickname;
+    }
 }
