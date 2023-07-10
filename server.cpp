@@ -67,7 +67,7 @@ int main() {
 
     while (true) {
         // Primeiro recebemos a mensagem que o cliente nos enviou.
-        recv(client_socket, buffer, 1024, 0);
+        recv(client_socket, buffer, MAX_MSG, 0);
 
         //printando na tela a mensagem enviada pelo cliente
         cout << buffer << endl;

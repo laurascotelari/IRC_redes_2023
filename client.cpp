@@ -30,6 +30,8 @@ string generateNickname(string nickname, int flag){
 }
 
 int main(int argc, char **argv) {
+
+    //caso o usuario nao tenha digitado o endereco do server
 	if (argc != 2) {
 		cout << "use: ./client <IPaddress>";
         return -1;
@@ -79,12 +81,32 @@ int main(int argc, char **argv) {
      * As mensagens vão sendo recebidas neste buffer, o qual podemos consumir para ler.
      */
     char buffer[MAX_MSG] = {0};
+
+    //mensagem que sera lida da stdin
     string mensagemLida;
-
-    //mensagem ja formatada: apelido + mensagem
+    //mensagem formatada: apelido + mensagemLida
     string mensagem;
+    //apelido do cliente 
+    //  * flag 0: gera arbritariamente no tipo cliente + numero_aleatorio
+    //  * flag 1: recebe o nickname escolhido usando /nickname (ainda nao implementado) 
+    string nickname;
+    nickname = generateNickname(nickname, 0);
 
-    string nickname = generateNickname(mensagem, 0);
+    //controla se o usuario ja mandou o comando /connect
+    int flagConnect = false;
+
+    cout << "Comandos importantes:\n";
+    cout << "\t/connect : Estabelece conexão com o servidor\n";
+    cout << "\t/quit    : Cliente fecha a conexão e fecha a aplicação\n";
+    cout << "\t/ping    : Servidor retorna pong assim que receber a mensagem\n";
+
+    do{
+        cout << "\nDigite /connect para começar: ";
+        getline(cin, mensagemLida);
+
+    }while(mensagemLida != "/connect");
+
+    cout << "-------- Iniciando Chat --------\n";
 
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
@@ -94,7 +116,7 @@ int main(int argc, char **argv) {
         //formatando a mensagem do usuario adicionando o seu nickname
         mensagem = nickname + ": " + mensagemLida; 
 
-        cout << "\n" << mensagem << "\n\n";  
+        cout << "\n\t" << mensagem << "\n\n";  
 
         // Mandar mensagem ao servidor.
         send(client_socket, mensagem.c_str(), mensagem.length(), 0);
@@ -103,8 +125,8 @@ int main(int argc, char **argv) {
         if (mensagemLida == "/quit") break;
 
         // Receber resposta do servidor.
-        recv(client_socket, buffer, 1024, 0);
-        cout << "Mensagem do Servidor: " << buffer << endl;
+        recv(client_socket, buffer, MAX_MSG, 0);
+        cout << "\tMensagem do Servidor: " << buffer << endl;
 
         // Limpar buffer de recepção para se preparar para próxima mensagem
         memset(buffer, 0, sizeof(buffer));
