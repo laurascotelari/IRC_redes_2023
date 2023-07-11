@@ -2,7 +2,7 @@
 ## SSC0142-Redes de Computadores 
 |        Nome                   |    NUSP   |           E-mail           |
 |:-----------------------------:|:---------:|:---------------------------:|
-|     Isadora                   |  N USP    |    email usp               |
+|   Isadora Carolina Siebert    |  11345580 |   isadoracsiebert@usp.br   |
 |   Laura Ferré Scotelari       |  12543436 |   laura.scotelari@usp.br   |
 |   Maria Júlia Soares De Grandi|  12542501 |   maju.degrandi@usp.br     |
 ### Objetivo
