@@ -44,24 +44,39 @@ void handleClient(int client_socket){
     string message;
 
     while (true) {
+        int num_bytes;
+
         // Primeiro recebemos a mensagem que o cliente nos enviou.
-        recv(client_socket, buffer, MAX_MSG, 0);
+        if( (num_bytes = recv(client_socket, buffer, MAX_MSG, 0)) <= 0){
+            //erro ou conexão foi fechada pelo cliente
+            if(num_bytes < 0){
+                cout << "Erro no recv\n";
+            }
+        } else{
+            //printando na tela a mensagem enviada pelo cliente
+            cout << buffer << endl;
 
-        //printando na tela a mensagem enviada pelo cliente
-        cout << buffer << endl;
+            if(!strcmp(buffer,"/ping")){//se retorna 0, e pq sao iguais
 
-        //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
-        for (int i = 0; i < clientSockets.size(); i++ ){
-            cout << "Enviando '" << buffer << "' para " << clientSockets[i] << endl;
-            // Mandar mensagem para o cliente.
-            send(clientSockets[i], buffer, sizeof(buffer), 0);
+                cout << "Comando ping detectado" << endl;
+                message = "server: pong";
+                send(client_socket, message.c_str(), sizeof(buffer), 0);
+
+            }else{
+                //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
+                for (int i = 0; i < clientSockets.size(); i++ ){
+                    cout << "Enviando '" << buffer << "' para " << clientSockets[i] << endl;
+                    // Mandar mensagem para o cliente.
+                    send(clientSockets[i], buffer, sizeof(buffer), 0);
+                }
+            }
         }
 
         // Lida e impressa a mensagem, podemos limpar o buffer para preparar para novas mensagens.
         memset(buffer, 0, sizeof(buffer));
     }
 
-    // Fechar os sockets
+    // Fecha o socket
     close(client_socket);
 }
 

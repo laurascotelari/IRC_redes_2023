@@ -16,6 +16,8 @@ using namespace std;
 
 mutex mtx;
 int client_socket;
+//flag que controla o fim da conexão (vira true quando o usuário digita /quit)
+int flag_fim = false;
 
 /*Funcao initializeChat:
 *   Recebe o endereco IP do servidor pelo argv[1], cria um socket e estabelece a conexao
@@ -53,6 +55,8 @@ string generateNickname(string nickname, int flag);
 void recebeMensagem(int client_socket);
 //caso o usuário aperte Ctrl + C
 void signalHandler(int signal);
+//verifica se a mensagem digitada e um comando
+int isCommand(string mensagem);
 
 int main(int argc, char **argv) {
 
@@ -144,8 +148,6 @@ void chat(int client_socket){
      */
     char buffer[MAX_MSG] = {0};
 
-    //mensagem que sera lida da stdin
-    string mensagemLida;
     //mensagem formatada: apelido + mensagemLida
     string mensagem;
     //apelido do cliente 
@@ -158,21 +160,38 @@ void chat(int client_socket){
 
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
-        cout << "\n";
-        getline(cin, mensagemLida);
-
-        //formatando a mensagem do usuario adicionando o seu nickname
-        mensagem = nickname + ": " + mensagemLida; 
+        getline(cin, mensagem);
+        
+        //se a mensagem nao for um comando, devemos adicionar o nickname
+        if(!isCommand(mensagem)){
+            //formatando a mensagem do usuario adicionando o seu nickname
+            mensagem = nickname + ": " + mensagem; 
+        }
 
         // Mandar mensagem ao servidor.
         send(client_socket, mensagem.c_str(), mensagem.length(), 0);
 
         // Checar se o usuário quer sair caso a mensagem enviada ao servidor tenha sido o comando '/exit'.
-        if (mensagemLida == "/quit") break;
+        if (mensagem == "/quit" || flag_fim){
+            flag_fim = true;
+            break; 
+        } 
 
     }
+
+    //finalizando a thread
+    t1.join();
 }
 
+//verifica se a mensagem digitada e um comando
+int isCommand(string mensagem){
+
+    if(mensagem == "/ping" ||
+       mensagem == "/quit" ){
+        return true;
+    }
+    return false;
+}
 
 string generateNickname(string nickname, int flag){
     srand(time(0));
@@ -195,16 +214,31 @@ string generateNickname(string nickname, int flag){
 void recebeMensagem(int client_socket){
 
     char buffer[MAX_MSG] = {0};
+    int num_bytes;
 
     while(true){
+
+        //verificando se o usuario digitou /quit
+        if(flag_fim) break;
+
         mtx.lock();
         // Receber resposta do servidor.
-        recv(client_socket, buffer, MAX_MSG, 0);
-        cout << "\n\t" << buffer << endl;
+        if( (num_bytes = recv(client_socket, buffer, MAX_MSG, 0)) <= 0){
+            //erro ou conexão foi fechada pelo cliente
+            if(num_bytes < 0){
+                cout << "Erro no recv\n";
+            }
 
-        // Limpar buffer de recepção para se preparar para próxima mensagem
-        memset(buffer, 0, sizeof(buffer));
+        }else{
+            cout << "\t\t" << buffer << endl;
+
+            // Limpar buffer de recepção para se preparar para próxima mensagem
+            memset(buffer, 0, sizeof(buffer));
+
+        }
         mtx.unlock();
+
+
     }
 }
 
