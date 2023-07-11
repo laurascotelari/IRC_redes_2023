@@ -5,22 +5,37 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+#include <mutex>
+#include <csignal>
 
 using namespace std;
 
 #define MAX_MSG 4096
 
-//Função para lidar com as conexões entre cliente e servidor. Essa função será executada em diferentes threads
-//cada uma com o seu respectivo client_socket 
+//armazena os sockets dos clientes conectados 
+vector<int> clientSockets;
+int server_socket;
+
+mutex mtx;
+
+//Função para lidar com as conexões entre cliente e servidor. Essa função será 
+//executada em diferentes threads, cada uma com o seu respectivo client_socket 
 void handleClient(int client_socket){
     /**
      * Estabelecida a conexão, podemos informar isto pelo terminal. 
      */
-    cout << "Cliente esta conectado!" << endl;
+    cout << "Cliente " << client_socket << " conectado!" << endl;
+
+    //devido ao fato do vetor de sockets estar em uma area de memória compartilhada
+    //(race condition) é necessário utilizar o mutex para assegurar que não haverá
+    //inconsistência na escrita
+    mtx.lock();
+    clientSockets.push_back(client_socket);
+    mtx.unlock();
 
     /**
-     * Com a conexão estabelecida, 3-way handshake do TCP e tudo mais, podemos começar a troca de mensagens
-     * através do uso das primitivas de socket 'send' e 'recv'.
+     * Com a conexão estabelecida, 3-way handshake do TCP e tudo mais, podemos começar
+     * a troca de mensagens através do uso das primitivas de socket 'send' e 'recv'.
      * 
      * Precisamos primeiro configurar o buffer que vai receber as mensagens com um tamanho arbitrário de 1024.
      * As mensagens vão sendo recebidas neste buffer, o qual podemos consumir para ler.
@@ -35,25 +50,39 @@ void handleClient(int client_socket){
         //printando na tela a mensagem enviada pelo cliente
         cout << buffer << endl;
 
+        //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
+        for (int i = 0; i < clientSockets.size(); i++ ){
+            cout << "Enviando '" << buffer << "' para " << clientSockets[i] << endl;
+            // Mandar mensagem para o cliente.
+            send(clientSockets[i], buffer, sizeof(buffer), 0);
+        }
+
         // Lida e impressa a mensagem, podemos limpar o buffer para preparar para novas mensagens.
         memset(buffer, 0, sizeof(buffer));
-
-        // Checar se o cliente quer fechar a conexão com comando '/exit'.
-        if (message == "/quit") break;
-
-        // Ler entrada do usuário para mandar para o cliente.
-        cout << "Escreva sua mensagem: ";
-        getline(cin, message);
-
-        // Mandar mensagem para o cliente.
-        send(client_socket, message.c_str(), message.length(), 0);
     }
 
     // Fechar os sockets
     close(client_socket);
 }
 
+//caso o usuário aperte Ctrl + C
+void signalHandler(int signal) {
+    if (signal == SIGINT) {
+        cout << "Encerrando o servidor..." << endl;
+
+        //fechando os sockets abertos
+        for (int i = 0; i < clientSockets.size(); i++ ){
+            close(clientSockets[i]);
+        }
+
+        close(server_socket);
+        exit(signal);
+    }
+}
+
 int main() {
+
+    signal(SIGINT, signalHandler);
     /** 
      * Cria um socket para o servidor
      * // AF_INET diz que vamos usar IPv4
@@ -61,7 +90,7 @@ int main() {
      * // IPPROTO_TCP diz que vamos usar TCP. Poderíamos passar zero em 
      *   seu lugar, já que SOCK_STREAM por padrão usarái TCP.
     */
-    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     /**
      * A struct sockaddr_in server_address vai armazenar as informações

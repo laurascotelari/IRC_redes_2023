@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 
     //caso o usuario nao tenha digitado o endereco do server
 	if (argc != 2) {
-		cout << "use: ./client <IPaddress>";
+		cout << "use: ./client <IPaddress>\n";
         return -1;
     }
     
@@ -154,8 +154,6 @@ void chat(int client_socket){
         //formatando a mensagem do usuario adicionando o seu nickname
         mensagem = nickname + ": " + mensagemLida; 
 
-        cout << "\n\t" << mensagem << "\n\n";  
-
         // Mandar mensagem ao servidor.
         send(client_socket, mensagem.c_str(), mensagem.length(), 0);
 
@@ -164,7 +162,7 @@ void chat(int client_socket){
 
         // Receber resposta do servidor.
         recv(client_socket, buffer, MAX_MSG, 0);
-        cout << "\tMensagem do Servidor: " << buffer << endl;
+        cout << "\n\t" << buffer << endl;
 
         // Limpar buffer de recepção para se preparar para próxima mensagem
         memset(buffer, 0, sizeof(buffer));
