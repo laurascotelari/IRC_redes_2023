@@ -6,10 +6,16 @@
 #include <string>
 #include <cstdlib>  // usar rand() e srand()
 #include <ctime>  
+#include <thread>
+#include <mutex>
+#include <csignal>
 
 using namespace std;
 
 #define MAX_MSG 4096
+
+mutex mtx;
+int client_socket;
 
 /*Funcao initializeChat:
 *   Recebe o endereco IP do servidor pelo argv[1], cria um socket e estabelece a conexao
@@ -44,7 +50,9 @@ void chat(int client_socket);
 *   String de apelido gerada
 */
 string generateNickname(string nickname, int flag);
-
+void recebeMensagem(int client_socket);
+//caso o usuário aperte Ctrl + C
+void signalHandler(int signal);
 
 int main(int argc, char **argv) {
 
@@ -93,7 +101,7 @@ int initializeChat(char* server_IP_addr){
      * // IPPROTO_TCP diz que vamos usar TCP. Poderíamos passar zero em 
      *   seu lugar, já que SOCK_STREAM por padrão usarái TCP.
     */
-    int client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     /**
      * A struct sockaddr_in server_address vai armazenar as informações
@@ -146,9 +154,11 @@ void chat(int client_socket){
     string nickname;
     nickname = generateNickname(nickname, 0);
 
+    thread t1(recebeMensagem, client_socket);
+
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
-        cout << "\nEscreva sua mensagem: ";
+        cout << "\n";
         getline(cin, mensagemLida);
 
         //formatando a mensagem do usuario adicionando o seu nickname
@@ -160,12 +170,6 @@ void chat(int client_socket){
         // Checar se o usuário quer sair caso a mensagem enviada ao servidor tenha sido o comando '/exit'.
         if (mensagemLida == "/quit") break;
 
-        // Receber resposta do servidor.
-        recv(client_socket, buffer, MAX_MSG, 0);
-        cout << "\n\t" << buffer << endl;
-
-        // Limpar buffer de recepção para se preparar para próxima mensagem
-        memset(buffer, 0, sizeof(buffer));
     }
 }
 
@@ -184,5 +188,34 @@ string generateNickname(string nickname, int flag){
         newNickname = "cliente" + to_string(randNum);
 
         return newNickname;
+    }
+}
+
+
+void recebeMensagem(int client_socket){
+
+    char buffer[MAX_MSG] = {0};
+
+    while(true){
+        mtx.lock();
+        // Receber resposta do servidor.
+        recv(client_socket, buffer, MAX_MSG, 0);
+        cout << "\n\t" << buffer << endl;
+
+        // Limpar buffer de recepção para se preparar para próxima mensagem
+        memset(buffer, 0, sizeof(buffer));
+        mtx.unlock();
+    }
+}
+
+//caso o usuário aperte Ctrl + C
+void signalHandler(int signal) {
+    if (signal == SIGINT) {
+        cout << "Encerrando o cliente..." << endl;
+
+        //fecha o socket
+        close(client_socket);
+
+        exit(signal);
     }
 }
