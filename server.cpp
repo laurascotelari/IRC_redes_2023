@@ -7,6 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <csignal>
+#include <algorithm>
 
 using namespace std;
 
@@ -51,7 +52,17 @@ void handleClient(int client_socket){
             //erro ou conexão foi fechada pelo cliente
             if(num_bytes < 0){
                 cout << "Erro no recv\n";
+            } else {
+                cout << "Cliente " << client_socket << " desconectado!" << endl;
+                // Remover o socket da lista de clientSockets
+                mtx.lock();
+                clientSockets.erase(
+                    remove(clientSockets.begin(), clientSockets.end(), client_socket),
+                    clientSockets.end()
+                );
+                mtx.unlock();
             }
+            break; // Sair do loop ao receber mensagem inválida ou conexão fechada
         } else{
             //printando na tela a mensagem enviada pelo cliente
             cout << buffer << endl;
