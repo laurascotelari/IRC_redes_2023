@@ -11,13 +11,12 @@ int server_socket;
 mutex mtx;
 
 string getNickname(int client_socket, string buffer) {
-    int num_bytes = buffer.length();
-    cout << num_bytes << ' ' << buffer << endl;
-    if (num_bytes > 0) {
-        string message = buffer;
-        size_t pos = message.find(':');
-        if (pos != string::npos) {
-            return message.substr(message.find(']') + 2, pos);
+    size_t pos = buffer.find(':');
+    if (pos != string::npos) {
+        string message = buffer.substr(0, pos);
+        size_t nicknameStart = message.find(']');
+        if (nicknameStart != string::npos) {
+            return message.substr(nicknameStart + 2);
         }
     }
     return "";
@@ -39,6 +38,7 @@ void handleClient(int client_socket){
         if( (num_bytes = recv(client_socket, buffer, MAX_MSG, 0)) <= 0){
             if(num_bytes < 0){
                 cout << "Erro no recv\n";
+                break;
             } else {
                 cout << "Cliente " << client_socket << " desconectado!" << endl;
                 mtx.lock();
@@ -53,7 +53,7 @@ void handleClient(int client_socket){
         } else{
            //printando na tela a mensagem enviada pelo cliente
             string mensagem = buffer;
-            cout << mensagem << endl;
+            cout << "MENSAGEM: " << mensagem << endl;
 
             Comando comando;
             string argumento;
@@ -66,6 +66,8 @@ void handleClient(int client_socket){
             }
             if (mutedClients.find(client_socket) != mutedClients.end()) {
                 cout << "Cliente está silenciado. Mensagem não enviada." << endl;
+                memset(buffer, 0, sizeof(buffer));
+
                 continue;
             }
             string nickname = getNickname(client_socket, mensagem);
@@ -74,7 +76,8 @@ void handleClient(int client_socket){
                 close(client_socket);
                 return;
             }
-            userSocket.insert(make_pair(client_socket, nickname));
+            userSocket[client_socket] = nickname;
+
             //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
             for (int i = 0; i < clientSockets.size(); i++ ){
 
@@ -108,9 +111,9 @@ void signalHandlerServer(int signal) {
 }
 
 void muteClient(const string& nickname) {
-    for (int socket : clientSockets) {
-        if (userSocket[socket] == nickname) {
-            mutedClients.insert(socket);
+    for (const auto& pair : userSocket) {
+        if (pair.second == nickname) {
+            mutedClients.insert(pair.first);
             cout << "Cliente " << nickname << " foi silenciado." << endl;
             return;
         }
@@ -119,14 +122,20 @@ void muteClient(const string& nickname) {
 }
 
 void unmuteClient(const string& nickname) {
-    for (int socket : clientSockets) {
+    int socketToUnmute = -1;
+    for (int socket : mutedClients) {
         if (userSocket[socket] == nickname) {
-            mutedClients.erase(socket);
-            cout << "Silenciamento removido para o cliente " << nickname << "." << endl;
-            return;
+            socketToUnmute = socket;
+            break;
         }
     }
-    cout << "Cliente " << nickname << " não encontrado." << endl;
+
+    if (socketToUnmute != -1) {
+        mutedClients.erase(socketToUnmute);
+        cout << "Silenciamento removido para o cliente " << nickname << "." << endl;
+    } else {
+        cout << "Cliente " << nickname << " não encontrado ou não está silenciado." << endl;
+    }
 }
 
 //funcao para adicionar cliente a um novo canal
@@ -225,13 +234,14 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
 
         case Comando::Mute:
             {
-                cout << "voce está tentando mutar alguem\n";
                 muteClient(argumento);
             }
             break;
 
-        case Comando::Unmute:
-            unmuteClient(argumento);
+        case Comando::Unmute: 
+            {
+                unmuteClient(argumento);
+            }
             break;
 
         case Comando::Whois:

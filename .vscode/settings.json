@@ -4,6 +4,7 @@
         "string": "cpp",
         "csignal": "cpp",
         "iostream": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "ostream": "cpp"
     }
 }

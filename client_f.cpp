@@ -204,9 +204,21 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
             break;
 
         case Comando::Mute:
+            {
+                string nomeCliente = argumento;
+                string comandoMute = "/mute " + nomeCliente;
+                
+                send(client_socket, comandoMute.c_str(), comandoMute.length(), 0);
+            }
             break;
 
         case Comando::Unmute:
+            {
+                string nomeCliente = argumento;
+                string comandoUnmute = "/unmute " + nomeCliente;
+                
+                send(client_socket, comandoUnmute.c_str(), comandoUnmute.length(), 0);
+            }
             break;
 
         case Comando::Whois:
