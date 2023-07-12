@@ -161,12 +161,17 @@ void chat(int client_socket){
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
         getline(cin, mensagem);
-        
+        int comando = 0;
         //se a mensagem nao for um comando, devemos adicionar o nickname
-        if(!isCommand(mensagem)){
+        if(!isCommand(&comando, mensagem)){
             //formatando a mensagem do usuario adicionando o seu nickname
             mensagem = nickname + ": " + mensagem; 
         }
+        else{
+            string argumento = getArgs(mensagem);
+            realizeCommand(comando, argumento);
+        }
+               
 
         // Mandar mensagem ao servidor.
         send(client_socket, mensagem.c_str(), mensagem.length(), 0);
@@ -184,22 +189,57 @@ void chat(int client_socket){
 }
 
 //verifica se a mensagem digitada e um comando
-int isCommand(string mensagem){
+int isCommand(int* comando, string mensagem){
+    string comando_str = mensagem.substr(0, mensagem.find(' '));
 
-    if(mensagem == "/ping" ||
-       mensagem == "/quit" ){
+    if (comando_str == "/ping") (*comando) = 0;
+    else if (comando_str == "/quit") (*comando) = 1;
+    else if (comando_str == "/join ") (*comando) = 2;
+    else if (comando_str == "/nickname ") (*comando) = 3;
+    else if (comando_str == "/kick ") (*comando) = 4;
+    else if (comando_str == "/mute ") (*comando) = 5;
+    else if (comando_str == "/unmute ") (*comando) = 6;
+    else if (comando_str == "/whois ") (*comando) = 7;
+
+    if((*comando) <= 7 ){
         return true;
     }
     return false;
 }
 
+string getArgs(string mensagem){
+    string argumento = mensagem.substr(mensagem.find(' '), mensagem.length());
+    return argumento;
+}
+
+void realizeCommand(int comando, string argumento){
+    if (comando == 2){
+        joinChannel(argumento);
+    }
+    else if (comando == 3){
+        argumento = generateNickname(argumento, 1);
+    }
+    else if (comando == 4){
+        kickUser(argumento);
+    }
+    else if (comando == 5){
+        muteUser(argumento);
+    }
+    else if (comando == 6){
+        unmuteUser(argumento);
+    }
+    else if (comando == 7){
+        getIp(argumento);
+    }
+}
+
 string generateNickname(string nickname, int flag){
     srand(time(0));
     
-    //gera um nickname aleatorio: cliente + numero aleatorio
     if(flag){
-        return nickname;
+        return nickname.substr(0,50);
     }else{
+        //gera um nickname aleatorio: cliente + numero aleatorio
         //pegando um numero aleatrio entre 0 e 100
         int randNum = rand()%100;
 
