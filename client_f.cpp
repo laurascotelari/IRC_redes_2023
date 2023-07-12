@@ -204,6 +204,12 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
             break;
 
         case Comando::Kick:
+            {
+                string kickedUser = argumento;
+                string comandoKick = "/kick " + kickedUser;
+                
+                send(client_socket, comandoKick.c_str(), comandoKick.length(), 0);
+            }
             break;
 
         case Comando::Mute:
@@ -281,7 +287,15 @@ void recebeMensagem(int client_socket){
                 cout << "Erro no recv\n";
             }
         }else{
-            cout << "\t\t" << buffer << endl;
+            //significa que o usuario foi chutado
+            string message = buffer;
+            if(message == "/kick"){
+                cout << "\t\t" << "Você foi chutado!" << endl;
+                exit(0);
+            }else{
+                cout << "\t\t" << buffer << endl;
+
+            }
 
             // Limpar buffer de recepção para se preparar para próxima mensagem
             memset(buffer, 0, sizeof(buffer));

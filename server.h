@@ -45,3 +45,4 @@ void removeUser(int client_socket);
 string getArgs(string mensagem);
 void joinChannel(string channel, int client_socket);
 void tratarComando(int client_socket, Comando comando, const string& argumento);
+void kickUser(const string& argumento);

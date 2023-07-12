@@ -42,7 +42,6 @@ void handleClient(int client_socket){
         if( (num_bytes = recv(client_socket, buffer, MAX_MSG, 0)) <= 0){
             if(num_bytes < 0){
                 cout << "Erro no recv\n";
-                break;
             } else {
                 cout << "Cliente " << client_socket << " desconectado!" << endl;
                 mtx.lock();
@@ -69,6 +68,7 @@ void handleClient(int client_socket){
 
                 continue;
             }
+            //se o cliente estiver silenciado
             if (mutedClients.find(client_socket) != mutedClients.end()) {
                 cout << "Cliente está silenciado. Mensagem não enviada." << endl;
                 memset(buffer, 0, sizeof(buffer));
@@ -186,6 +186,32 @@ string getIPFromUsername(const string& nickname) {
     return "Usuário não encontrado";
 }
 
+void kickUser(const string& argumento){
+    string message = "server: " + argumento + " foi expulso do chat.\n"; 
+    int kicked_socket;
+
+    //iterando pelos sockets ate encontrar o correspondente ao nickname
+    for (int i = 0; i < clientSockets.size(); i++ ){
+        /*cout << "\ni: " << i << endl;
+        cout << "\tuserSocket[clientSockets[i]]: " << userSocket[clientSockets[i]]  << endl;
+        cout << "\tclientSocket[i]: " << clientSockets[i]  << endl;
+        cout << "\targumento: " << argumento << endl;*/
+        //verifica se o nickname para aquele socket e o nickname passado no comando /kick
+        if(userSocket[clientSockets[i]] == argumento){
+            kicked_socket = clientSockets[i];
+            //cout << "\tachou: " << kicked_socket << endl;
+        }
+
+        //comunica todos os usuarios
+        send(clientSockets[i], message.c_str(), message.length(), 0);
+    }
+
+    message = "/kick";
+    send(kicked_socket, message.c_str(), message.length(), 0);
+    //fecha a conexao
+    removeUser(kicked_socket);
+}
+
 void removeUser(int client_socket){
     close(client_socket);
     //remove da lista de clients
@@ -273,6 +299,8 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
         case Comando::Kick:
         {
             if (isAdmin(client_socket)) {
+                cout << "Comando Kick detectado!\n"; 
+                kickUser(argumento);
                 
             } else {
                 string mensagem = "server: Comando /kick é permitido apenas para administradores.";
