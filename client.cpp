@@ -14,6 +14,17 @@ using namespace std;
 
 #define MAX_MSG 4096
 
+enum class Comando {
+    Ping,
+    Quit,
+    Join,
+    Nickname,
+    Kick,
+    Mute,
+    Unmute,
+    Whois
+};
+
 mutex mtx;
 int client_socket;
 //flag que controla o fim da conexão (vira true quando o usuário digita /quit)
@@ -56,9 +67,9 @@ void recebeMensagem(int client_socket);
 //caso o usuário aperte Ctrl + C
 void signalHandler(int signal);
 //verifica se a mensagem digitada e um comando
-int isCommand(int* comando, string mensagem);
+int isCommand(Comando& comando, string mensagem);
 string getArgs(string mensagem);
-void realizeCommand(int comando, string argumento);
+void tratarComando(int client_socket, Comando comando, const string& argumento);
 
 int main(int argc, char **argv) {
 
@@ -139,6 +150,7 @@ int initializeChat(char* server_IP_addr){
     return client_socket;
 }
 
+string nickname; // variável global
 
 void chat(int client_socket){
     /**
@@ -155,7 +167,6 @@ void chat(int client_socket){
     //apelido do cliente 
     //  * flag 0: gera arbritariamente no tipo cliente + numero_aleatorio
     //  * flag 1: recebe o nickname escolhido usando /nickname (ainda nao implementado) 
-    string nickname;
     nickname = generateNickname(nickname, 0);
 
     thread t1(recebeMensagem, client_socket);
@@ -163,83 +174,133 @@ void chat(int client_socket){
     while (true) {
         // Ler entrada do usuário para mandar para o servidor.
         getline(cin, mensagem);
-        int comando = 0;
-        //se a mensagem nao for um comando, devemos adicionar o nickname
-        if(!isCommand(&comando, mensagem)){
-            //formatando a mensagem do usuario adicionando o seu nickname
-            mensagem = nickname + ": " + mensagem; 
-        }
-        else{
-            string argumento = getArgs(mensagem);
-            realizeCommand(comando, argumento);
-        }
-               
 
+        // Verificar se a mensagem excede o tamanho máximo permitido
+        if (mensagem.length() > MAX_MSG) {
+            cout << "A mensagem excede o tamanho máximo permitido de " << MAX_MSG << " caracteres." << endl;
+            continue; // Ignorar essa mensagem e continuar o loop
+        }
+
+        Comando comando;
+        string argumento;
+        if (isCommand(comando, mensagem)) {
+            argumento = getArgs(mensagem);
+            tratarComando(client_socket, comando, argumento);
+
+            // Checar se o usuário quer sair caso a mensagem enviada ao servidor tenha sido o comando '/exit'.
+            if (comando == Comando::Quit || flag_fim){
+                flag_fim = true;
+                break; 
+            } 
+
+            continue;
+        }
+
+        // se não for comando, adiciona o nickname
+        mensagem = nickname + ": " + mensagem;
+               
         // Mandar mensagem ao servidor.
         send(client_socket, mensagem.c_str(), mensagem.length(), 0);
-
-        // Checar se o usuário quer sair caso a mensagem enviada ao servidor tenha sido o comando '/exit'.
-        if (mensagem == "/quit" || flag_fim){
-            flag_fim = true;
-            break; 
-        } 
-
     }
 
     //finalizando a thread
     t1.join();
 }
 
-//verifica se a mensagem digitada e um comando
-int isCommand(int* comando, string mensagem){
-    if (mensagem.substr(0,1) != "/") return false;
-    string comando_str = mensagem.substr(0, mensagem.find(' '));
-
-    if (comando_str == "/ping") (*comando) = 0;
-    else if (comando_str == "/quit") (*comando) = 1;
-    else if (comando_str == "/join ") (*comando) = 2;
-    else if (comando_str == "/nickname ") (*comando) = 3;
-    else if (comando_str == "/kick ") (*comando) = 4;
-    else if (comando_str == "/mute ") (*comando) = 5;
-    else if (comando_str == "/unmute ") (*comando) = 6;
-    else if (comando_str == "/whois ") (*comando) = 7;
-
-    if((*comando) <= 7 ){
+// Verificar se a mensagem é um comando e atribuir o valor correspondente ao parâmetro 'comando'
+int isCommand(Comando& comando, string mensagem) {
+    if (mensagem == "/ping") {
+        comando = Comando::Ping;
         return true;
     }
+    else if (mensagem == "/quit") {
+        comando = Comando::Quit;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/join ") {
+        comando = Comando::Join;
+        return true;
+    }
+    else if (mensagem.substr(0, 10) == "/nickname ") {
+        comando = Comando::Nickname;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/kick ") {
+        comando = Comando::Kick;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/mute ") {
+        comando = Comando::Mute;
+        return true;
+    }
+    else if (mensagem.substr(0, 8) == "/unmute ") {
+        comando = Comando::Unmute;
+        return true;
+    }
+    else if (mensagem.substr(0, 7) == "/whois ") {
+        comando = Comando::Whois;
+        return true;
+    }
+
+    return false; // Não é um comando
 }
 
+// Retornar os argumentos do comando
 string getArgs(string mensagem){
-    string argumento = mensagem.substr(mensagem.find(' '), mensagem.length());
+    string argumento = mensagem.substr(mensagem.find(' ') + 1);
     return argumento;
 }
 
-void realizeCommand(int comando, string argumento){
-    if (comando == 2){
-        //joinChannel(argumento);
-    }
-    else if (comando == 3){
-        argumento = generateNickname(argumento, 1);
-    }
-    else if (comando == 4){
-        //kickUser(argumento);
-    }
-    else if (comando == 5){
-        //muteUser(argumento);
-    }
-    else if (comando == 6){
-        //unmuteUser(argumento);
-    }
-    else if (comando == 7){
-        //getIp(argumento);
+// Função para tratar cada comando individualmente
+void tratarComando(int client_socket, Comando comando, const string& argumento) {
+    switch (comando) {
+        case Comando::Ping:
+            send(client_socket, "/ping", strlen("/ping"), 0);
+            break;
+
+        case Comando::Quit:
+            send(client_socket, "/quit", strlen("/quit"), 0);
+            flag_fim = true;
+            break;
+
+        case Comando::Join:
+            {
+                string nomeCanal = argumento;
+                string comandoJoin = "/join " + nomeCanal;
+                send(client_socket, comandoJoin.c_str(), comandoJoin.length(), 0);
+            }
+            break;
+
+        case Comando::Nickname:
+            {
+                nickname = generateNickname(argumento, 1);
+                cout << "Apelido definido como: " << nickname << endl;
+            }
+            break;
+
+        case Comando::Kick:
+            break;
+
+        case Comando::Mute:
+            break;
+
+        case Comando::Unmute:
+            break;
+
+        case Comando::Whois:
+            break;
+
+        default:
+            cout << "Comando inválido." << endl;
+            break;
     }
 }
 
-string generateNickname(string nickname, int flag){
+string generateNickname(string argumento, int flag){
     srand(time(0));
     
     if(flag){
-        return nickname.substr(0,50);
+        return argumento.substr(0,50);
     }else{
         //gera um nickname aleatorio: cliente + numero aleatorio
         //pegando um numero aleatrio entre 0 e 100
