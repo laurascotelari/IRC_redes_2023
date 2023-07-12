@@ -197,6 +197,9 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
             {
                 nickname = generateNickname(argumento, 1);
                 cout << "Apelido definido como: " << nickname << endl;
+                string comandoNickname = "/nickname " + nickname;
+                
+                send(client_socket, comandoNickname.c_str(), comandoNickname.length(), 0);
             }
             break;
 
@@ -222,6 +225,12 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
             break;
 
         case Comando::Whois:
+            {
+                string nomeCliente = argumento;
+                string comandoWhois = "/whois " + nomeCliente;
+                
+                send(client_socket, comandoWhois.c_str(), comandoWhois.length(), 0);
+            }
             break;
 
         default:

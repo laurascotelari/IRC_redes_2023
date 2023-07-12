@@ -4,9 +4,13 @@
 map<string, vector<int>> channels;
 //mapeia um socket para um cliente
 map<int, string> userChannels;
+//armazena os sockets
 vector<int> clientSockets;
+//armazenas os clientes mutados
 unordered_set<int> mutedClients;
+//mapeia um socket para um nickname
 map<int, string> userSocket;
+
 int server_socket;
 mutex mtx;
 
@@ -61,6 +65,7 @@ void handleClient(int client_socket){
             if (isCommand(comando, mensagem)) {
                 argumento = getArgs(mensagem);
                 tratarComando(client_socket, comando, argumento);
+                memset(buffer, 0, sizeof(buffer));
 
                 continue;
             }
@@ -76,7 +81,9 @@ void handleClient(int client_socket){
                 close(client_socket);
                 return;
             }
-            userSocket[client_socket] = nickname;
+            if (userSocket.count(client_socket) == 0) {
+                userSocket[client_socket] = nickname;
+            } 
 
             //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
             for (int i = 0; i < clientSockets.size(); i++ ){
@@ -158,6 +165,26 @@ void joinChannel(string channel, int client_socket){
 
 }
 
+bool isAdmin(int client_socket) {
+    if(client_socket == clientSockets[0]) return true;
+    else return false;
+}
+
+string getIPFromUsername(const string& nickname) {
+     for (const auto& pair : userSocket) {
+        if (pair.second == nickname) {
+            struct sockaddr_in clientAddress;
+            socklen_t clientAddressLength = sizeof(clientAddress);
+            getpeername(pair.first, (struct sockaddr*)&clientAddress, &clientAddressLength);
+
+            char clientIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(clientAddress.sin_addr), clientIP, INET_ADDRSTRLEN);
+            string ip = clientIP;
+            return " Endereço IP do usuário: " + ip;
+        }
+    }
+    return "Usuário não encontrado";
+}
 
 // Verificar se a mensagem é um comando e atribuir o valor correspondente ao parâmetro 'comando'
 int isCommand(Comando& comando, string mensagem) {
@@ -207,44 +234,79 @@ string getArgs(string mensagem){
 void tratarComando(int client_socket, Comando comando, const string& argumento) {
     switch (comando) {
         case Comando::Ping:
-            {
-                cout << "Comando ping detectado" << endl;
-                string message = "server: pong";
-                send(client_socket, message.c_str(), message.length(), 0);
-            }
+        {
+            cout << "Comando ping detectado" << endl;
+            string message = "server: pong";
+            send(client_socket, message.c_str(), message.length(), 0);
+        }
             break;
 
         case Comando::Quit:
+        {
             cout << "Cliente " << client_socket << " desconectado\n";
+        }
             break;
 
         case Comando::Join:
-            {
-                string nomeCanal = argumento;
-                joinChannel(nomeCanal, client_socket);
+        {
+            string nomeCanal = argumento;
+            joinChannel(nomeCanal, client_socket);
 
-            }
+        }
             break;
 
         case Comando::Nickname:
+        {
+            string novoNick = argumento;
+            userSocket[client_socket] = novoNick;
+        }
             break;
 
         case Comando::Kick:
+        {
+            if (isAdmin(client_socket)) {
+                
+            } else {
+                string mensagem = "server: Comando /kick é permitido apenas para administradores.";
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
+            }
+        }
             break;
 
         case Comando::Mute:
-            {
+        {
+            if (isAdmin(client_socket)) {
                 muteClient(argumento);
+            } else {
+                string mensagem = "server: Comando /mute é permitido apenas para administradores.";
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
             }
+        }
             break;
 
         case Comando::Unmute: 
-            {
+        {
+            if (isAdmin(client_socket)) {
                 unmuteClient(argumento);
+            } else {
+                string mensagem = "server: Comando /unmute é permitido apenas para administradores.";
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
             }
+        }
             break;
 
         case Comando::Whois:
+        {
+            if (isAdmin(client_socket)) { 
+                string nomeUsuario = argumento;
+                string resposta = getIPFromUsername(nomeUsuario);
+                string mensagem = "server: Consultado o usuário " + nomeUsuario + "\n" + resposta;
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
+            } else {
+                string mensagem = "server: Comando /whois é permitido apenas para administradores.";
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
+            }
+        }
             break;
 
         default:
