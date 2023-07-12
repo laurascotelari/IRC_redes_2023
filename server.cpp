@@ -5,7 +5,7 @@
 using namespace std;
 
 int main() {
-    signal(SIGINT, signalHandler);
+    signal(SIGINT, signalHandlerServer);
 
     server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 

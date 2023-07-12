@@ -1,32 +1,30 @@
 #include "server.h"
 
+//mapeia um nome de canal para uma lista de client_sockets
+map<string, vector<int>> channels;
+//mapeia um socket para um cliente
+map<int, string> userChannels;
 vector<int> clientSockets;
 unordered_set<int> mutedClients;
 map<int, string> userSocket;
 int server_socket;
+mutex mtx;
 
-string getNickname(int client_socket) {
-    char buffer[MAX_MSG] = {0};
-    int num_bytes = recv(client_socket, buffer, MAX_MSG, 0);
+string getNickname(int client_socket, string buffer) {
+    int num_bytes = buffer.length();
+    cout << num_bytes << ' ' << buffer << endl;
     if (num_bytes > 0) {
         string message = buffer;
         size_t pos = message.find(':');
         if (pos != string::npos) {
-            return message.substr(0, pos);
+            return message.substr(message.find(']') + 2, pos);
         }
     }
     return "";
 }
 
 void handleClient(int client_socket){
-    string nickname = getNickname(client_socket);
-    if (nickname.empty()) {
-        cout << "Não foi possível obter o apelido do cliente " << client_socket << endl;
-        close(client_socket);
-        return;
-    }
-    userSocket.insert(make_pair(client_socket, nickname));
-    cout << "Cliente " << nickname << " conectado!" << endl;
+    cout << "Cliente " << client_socket << " conectado!" << endl;
 
     mtx.lock();
     clientSockets.push_back(client_socket);
@@ -42,7 +40,7 @@ void handleClient(int client_socket){
             if(num_bytes < 0){
                 cout << "Erro no recv\n";
             } else {
-                cout << "Cliente " << nickname << " desconectado!" << endl;
+                cout << "Cliente " << client_socket << " desconectado!" << endl;
                 mtx.lock();
                 clientSockets.erase(
                     remove(clientSockets.begin(), clientSockets.end(), client_socket),
@@ -53,22 +51,39 @@ void handleClient(int client_socket){
             }
             break;
         } else{
+           //printando na tela a mensagem enviada pelo cliente
+            string mensagem = buffer;
+            cout << mensagem << endl;
+
+            Comando comando;
+            string argumento;
+            //tratando os comandos que chegam ao servidor
+            if (isCommand(comando, mensagem)) {
+                argumento = getArgs(mensagem);
+                tratarComando(client_socket, comando, argumento);
+
+                continue;
+            }
             if (mutedClients.find(client_socket) != mutedClients.end()) {
                 cout << "Cliente está silenciado. Mensagem não enviada." << endl;
                 continue;
             }
+            string nickname = getNickname(client_socket, mensagem);
+            if (nickname.empty()) {
+                cout << "Não foi possível obter o apelido do cliente " << client_socket << endl;
+                close(client_socket);
+                return;
+            }
+            userSocket.insert(make_pair(client_socket, nickname));
+            //A mensagem recebida pelo servidor deve ser enviada para cada cliente conectado  
+            for (int i = 0; i < clientSockets.size(); i++ ){
 
-            cout << buffer << endl;
+                //verificando se o canal do cliente é igual ao canal do cliente que enviou a mensagem
+                if(userChannels[clientSockets[i]] == userChannels[client_socket]){
+                    cout << "Enviando '" << mensagem << "' para " << clientSockets[i] << endl;
+                    // Mandar mensagem para o cliente.
+                    send(clientSockets[i], mensagem.c_str(), mensagem.length(), 0);
 
-            if(!strcmp(buffer,"/ping")){
-                cout << "Comando ping detectado" << endl;
-                message = "server: pong";
-                send(client_socket, message.c_str(), sizeof(buffer), 0);
-
-            }else{
-                for (int i = 0; i < clientSockets.size(); i++ ){
-                    cout << "Enviando '" << buffer << "' para " << userSocket[clientSockets[i]] << endl;
-                    send(clientSockets[i], buffer, sizeof(buffer), 0);
                 }
             }
         }
@@ -79,7 +94,7 @@ void handleClient(int client_socket){
     close(client_socket);
 }
 
-void signalHandler(int signal) {
+void signalHandlerServer(int signal) {
     if (signal == SIGINT) {
         cout << "Encerrando o servidor..." << endl;
 
@@ -94,7 +109,7 @@ void signalHandler(int signal) {
 
 void muteClient(const string& nickname) {
     for (int socket : clientSockets) {
-        if (getNickname(socket) == nickname) {
+        if (userSocket[socket] == nickname) {
             mutedClients.insert(socket);
             cout << "Cliente " << nickname << " foi silenciado." << endl;
             return;
@@ -105,11 +120,125 @@ void muteClient(const string& nickname) {
 
 void unmuteClient(const string& nickname) {
     for (int socket : clientSockets) {
-        if (getNickname(socket) == nickname) {
+        if (userSocket[socket] == nickname) {
             mutedClients.erase(socket);
             cout << "Silenciamento removido para o cliente " << nickname << "." << endl;
             return;
         }
     }
     cout << "Cliente " << nickname << " não encontrado." << endl;
+}
+
+//funcao para adicionar cliente a um novo canal
+void joinChannel(string channel, int client_socket){
+
+    //verificando se o canal pedido existe
+    if(channels.find(channel) == channels.end()){
+        //se não, criamos um novo canal com um vetor apenas com o socket do cliente
+        channels[channel] = vector<int>{client_socket};
+    } else{
+        //o canal ja existe, entao o client_socket só é adicionado à lista atrelada 
+        //ao nome do canal
+        channels[channel].push_back(client_socket);
+    }
+    //o map userChannel deve retornar o nome do canal do cliente dado o seu socket
+    userChannels[client_socket] = channel;
+    //envia mensagem de confirmação para o cliente
+    string message = "server: Você entrou no canal " + channel + "\n";
+    send(client_socket, message.c_str(), message.length(), 0);
+
+}
+
+
+// Verificar se a mensagem é um comando e atribuir o valor correspondente ao parâmetro 'comando'
+int isCommand(Comando& comando, string mensagem) {
+    if (mensagem == "/ping") {
+        comando = Comando::Ping;
+        return true;
+    }
+    else if (mensagem == "/quit") {
+        comando = Comando::Quit;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/join ") {
+        comando = Comando::Join;
+        return true;
+    }
+    else if (mensagem.substr(0, 10) == "/nickname ") {
+        comando = Comando::Nickname;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/kick ") {
+        comando = Comando::Kick;
+        return true;
+    }
+    else if (mensagem.substr(0, 6) == "/mute ") {
+        comando = Comando::Mute;
+        return true;
+    }
+    else if (mensagem.substr(0, 8) == "/unmute ") {
+        comando = Comando::Unmute;
+        return true;
+    }
+    else if (mensagem.substr(0, 7) == "/whois ") {
+        comando = Comando::Whois;
+        return true;
+    }
+
+    return false; // Não é um comando
+}
+
+// Retornar os argumentos do comando
+string getArgs(string mensagem){
+    string argumento = mensagem.substr(mensagem.find(' ') + 1);
+    return argumento;
+}
+
+// Função para tratar cada comando individualmente
+void tratarComando(int client_socket, Comando comando, const string& argumento) {
+    switch (comando) {
+        case Comando::Ping:
+            {
+                cout << "Comando ping detectado" << endl;
+                string message = "server: pong";
+                send(client_socket, message.c_str(), message.length(), 0);
+            }
+            break;
+
+        case Comando::Quit:
+            cout << "Cliente " << client_socket << " desconectado\n";
+            break;
+
+        case Comando::Join:
+            {
+                string nomeCanal = argumento;
+                joinChannel(nomeCanal, client_socket);
+
+            }
+            break;
+
+        case Comando::Nickname:
+            break;
+
+        case Comando::Kick:
+            break;
+
+        case Comando::Mute:
+            {
+                cout << "voce está tentando mutar alguem\n";
+                muteClient(argumento);
+            }
+            break;
+
+        case Comando::Unmute:
+            unmuteClient(argumento);
+            break;
+
+        case Comando::Whois:
+            break;
+
+        default:
+            cout << "Comando inválido." << endl;
+            break;
+    }
 }

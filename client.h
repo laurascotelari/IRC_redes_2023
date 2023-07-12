@@ -26,7 +26,6 @@ enum class Comando {
     Whois
 };
 
-extern mutex mtx;
 extern int client_socket;
 extern int flag_fim;
 
@@ -37,4 +36,4 @@ string getArgs(string mensagem);
 void tratarComando(int client_socket, Comando comando, const string& argumento);
 string generateNickname(string argumento, int flag);
 void recebeMensagem(int client_socket);
-void signalHandler(int signal);
+void signalHandlerClient(int signal);
