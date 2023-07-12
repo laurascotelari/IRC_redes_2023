@@ -186,6 +186,13 @@ string getIPFromUsername(const string& nickname) {
     return "Usuário não encontrado";
 }
 
+void removeUser(int client_socket){
+    close(client_socket);
+    //remove da lista de clients
+    clientSockets.erase(remove(clientSockets.begin(), clientSockets.end(), client_socket), clientSockets.end());
+    userSocket.erase(client_socket);
+}
+
 // Verificar se a mensagem é um comando e atribuir o valor correspondente ao parâmetro 'comando'
 int isCommand(Comando& comando, string mensagem) {
     if (mensagem == "/ping") {
@@ -244,6 +251,7 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
         case Comando::Quit:
         {
             cout << "Cliente " << client_socket << " desconectado\n";
+            removeUser(client_socket);
         }
             break;
 

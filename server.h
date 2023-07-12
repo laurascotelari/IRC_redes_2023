@@ -41,6 +41,7 @@ void signalHandlerServer(int signal);
 void muteClient(const string& nickname);
 void unmuteClient(const string& nickname);
 int isCommand(Comando& comando, string mensagem);
+void removeUser(int client_socket);
 string getArgs(string mensagem);
 void joinChannel(string channel, int client_socket);
 void tratarComando(int client_socket, Comando comando, const string& argumento);
