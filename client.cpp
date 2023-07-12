@@ -56,7 +56,9 @@ void recebeMensagem(int client_socket);
 //caso o usuário aperte Ctrl + C
 void signalHandler(int signal);
 //verifica se a mensagem digitada e um comando
-int isCommand(string mensagem);
+int isCommand(int* comando, string mensagem);
+string getArgs(string mensagem);
+void realizeCommand(int comando, string argumento);
 
 int main(int argc, char **argv) {
 
@@ -168,7 +170,9 @@ void chat(int client_socket){
             mensagem = nickname + ": " + mensagem; 
         }
         else{
+            cout << "vamos ler seu comando!";
             string argumento = getArgs(mensagem);
+            cout << argumento << endl;
             realizeCommand(comando, argumento);
         }
                
@@ -214,22 +218,22 @@ string getArgs(string mensagem){
 
 void realizeCommand(int comando, string argumento){
     if (comando == 2){
-        joinChannel(argumento);
+        //joinChannel(argumento);
     }
     else if (comando == 3){
         argumento = generateNickname(argumento, 1);
     }
     else if (comando == 4){
-        kickUser(argumento);
+        //kickUser(argumento);
     }
     else if (comando == 5){
-        muteUser(argumento);
+        //muteUser(argumento);
     }
     else if (comando == 6){
-        unmuteUser(argumento);
+        //unmuteUser(argumento);
     }
     else if (comando == 7){
-        getIp(argumento);
+        //getIp(argumento);
     }
 }
 
