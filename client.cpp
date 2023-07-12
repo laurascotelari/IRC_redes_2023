@@ -170,9 +170,7 @@ void chat(int client_socket){
             mensagem = nickname + ": " + mensagem; 
         }
         else{
-            cout << "vamos ler seu comando!";
             string argumento = getArgs(mensagem);
-            cout << argumento << endl;
             realizeCommand(comando, argumento);
         }
                
@@ -194,6 +192,7 @@ void chat(int client_socket){
 
 //verifica se a mensagem digitada e um comando
 int isCommand(int* comando, string mensagem){
+    if (mensagem.substr(0,1) != "/") return false;
     string comando_str = mensagem.substr(0, mensagem.find(' '));
 
     if (comando_str == "/ping") (*comando) = 0;
@@ -208,7 +207,6 @@ int isCommand(int* comando, string mensagem){
     if((*comando) <= 7 ){
         return true;
     }
-    return false;
 }
 
 string getArgs(string mensagem){
