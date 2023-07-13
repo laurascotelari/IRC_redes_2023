@@ -139,11 +139,14 @@ void unmuteClient(const string& nickname) {
 }
 
 bool isAdmin(int client_socket) {
-    if (client_socket == clientSockets[0]) {
-        return true;
-    } else {
-        return false;
+    string nickname = userSocket[client_socket];
+    if (channels.find(userChannels[client_socket]) != channels.end()) {
+        const Channel& channel = channels[userChannels[client_socket]];
+        if (channel.admin == nickname) {
+            return true;
+        }
     }
+    return false;
 }
 
 void joinChannel(const string& channel, int client_socket) {
@@ -152,6 +155,7 @@ void joinChannel(const string& channel, int client_socket) {
         Channel newChannel;
         newChannel.name = channel;
         newChannel.users.push_back(client_socket);
+        newChannel.admin = userSocket[client_socket];  // Atribua o apelido do cliente como administrador do canal
         channels[channel] = newChannel;
     } else {
         // O canal já existe
@@ -173,6 +177,8 @@ void joinChannel(const string& channel, int client_socket) {
     string message = "server: Você entrou no canal " + channel + "\n";
     send(client_socket, message.c_str(), message.length(), 0);
 }
+
+
 
 string getIPFromUsername(const string& nickname) {
     for (const auto& pair : userSocket) {
@@ -211,18 +217,26 @@ void kickUser(int client_socket, const string& argumento) {
 void inviteUser(const string& channelName, int client_socket, const string& nickname) {
     if (channels.find(channelName) != channels.end()) {
         Channel& channel = channels[channelName];
-        for (auto& pair : userSocket) {
-            if (pair.second == nickname) {
-                channel.invitedUsers.push_back(pair.first);
-                string message = "server: Você foi convidado para o canal " + channelName + "\n";
-                send(pair.first, message.c_str(), message.length(), 0);
-                return;
+        if (isAdmin(client_socket) || channel.admin == userSocket[client_socket]) {
+            for (const auto& pair : userSocket) {
+                if (pair.second == nickname) {
+                    int invitedClientSocket = pair.first;
+                    channel.invitedUsers.push_back(invitedClientSocket);
+                    string message = "server: Você foi convidado para o canal " + channelName + "\n";
+                    send(invitedClientSocket, message.c_str(), message.length(), 0);
+                    return;
+                }
             }
+        } else {
+            string message = "server: Comando /invite é permitido apenas para administradores.";
+            send(client_socket, message.c_str(), message.length(), 0);
+            return;
         }
     }
     string message = "server: Usuário " + nickname + " não encontrado ou canal " + channelName + " não existe.\n";
     send(client_socket, message.c_str(), message.length(), 0);
 }
+
 
 void uninviteUser(const string& channelName, const string& nickname) {
     for (auto& pair : userSocket) {
@@ -386,23 +400,23 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
         break;
 
         case Comando::Invite:
-        {
-            if (isAdmin(client_socket)) {
-                size_t pos = argumento.find(' ');
-                if (pos != string::npos) {
-                    string channelName = argumento.substr(0, pos);
-                    string nickname = argumento.substr(pos + 1);
-                    inviteUser(channelName, client_socket, nickname);
-                } else {
-                    string mensagem = "server: Uso incorreto do comando /invite. Formato esperado: /invite <canal> <apelido>";
-                    send(client_socket, mensagem.c_str(), mensagem.length(), 0);
-                }
+    {
+        if (isAdmin(client_socket)) {
+            size_t pos = argumento.find(' ');
+            if (pos != string::npos) {
+                string channelName = argumento.substr(0, pos);
+                string nickname = argumento.substr(pos + 1);
+                inviteUser(channelName, client_socket, nickname);
             } else {
-                string mensagem = "server: Comando /invite é permitido apenas para administradores.";
+                string mensagem = "server: Uso incorreto do comando /invite. Formato esperado: /invite <canal> <apelido>";
                 send(client_socket, mensagem.c_str(), mensagem.length(), 0);
             }
+        } else {
+            string mensagem = "server: Comando /invite é permitido apenas para administradores.";
+            send(client_socket, mensagem.c_str(), mensagem.length(), 0);
         }
-        break;
+    }
+    break;
 
 
         case Comando::Uninvite:

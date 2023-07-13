@@ -35,7 +35,8 @@ enum class Comando {
 struct Channel {
     string name;
     vector<int> users;
-    vector<int> invitedUsers; // Novo vetor para usuários convidados
+    string admin; // Novo campo para armazenar o apelido do administrador
+    vector<int> invitedUsers;
 };
 
 extern vector<int> clientSockets;
