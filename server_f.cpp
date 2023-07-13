@@ -1,38 +1,49 @@
 #include "server.h"
 
-map<string, Channel> channels;
-map<int, string> userChannels;
-vector<int> clientSockets;
-unordered_set<int> mutedClients;
-map<int, string> userSocket;
+map<string, Channel> channels; // Mapa de canais, onde a chave é o nome do canal e o valor é uma estrutura Channel
+map<int, string> userChannels; // Mapeamento entre o socket do cliente e o canal atual em que o cliente está conectado
+vector<int> clientSockets; // Vetor contendo os sockets dos clientes conectados
+unordered_set<int> mutedClients; // Conjunto de clientes silenciados
+map<int, string> userSocket; // Mapeamento entre o socket do cliente e seu apelido
 
-int server_socket;
-mutex mtx;
+int server_socket; // Socket do servidor
+mutex mtx; // Mutex para controle de concorrência
 
+// Obtém o apelido do cliente a partir do buffer de mensagem recebido
 string getNickname(int client_socket, string buffer) {
+    // Procura pelo primeiro caractere ':' no buffer
     size_t pos = buffer.find(':');
     if (pos != string::npos) {
         string message = buffer.substr(0, pos);
+        // Procura pelo caractere ']' na mensagem para identificar o início
         size_t nicknameStart = message.find(']');
         if (nicknameStart != string::npos) {
+            // Retorna o apelido encontrado na mensagem
             return message.substr(nicknameStart + 2);
         }
     }
+    // Caso não encontre um apelido válido, retorna uma string vazia
     return "";
 }
 
+// Verifica se o usuário está convidado para o canal
 bool isUserInvited(int client_socket, const string& channelName) {
+    // Verifica se o canal existe no mapa de canais
     if (channels.find(channelName) != channels.end()) {
         const Channel& channel = channels[channelName];
+        // Percorre a lista de usuários convidados do canal
         for (int socket : channel.invitedUsers) {
+            // Se encontrar o socket do cliente na lista de convidados, retorna true
             if (socket == client_socket) {
                 return true;
             }
         }
     }
+    // Caso contrário, retorna false
     return false;
 }
 
+// Lida com as operações do cliente
 void handleClient(int client_socket) {
     cout << "Cliente " << client_socket << " conectado!" << endl;
 
@@ -46,6 +57,7 @@ void handleClient(int client_socket) {
     while (true) {
         memset(buffer, 0, sizeof(buffer));
 
+        // Recebe a mensagem do cliente
         int num_bytes = recv(client_socket, buffer, MAX_MSG, 0);
         if (num_bytes <= 0) {
             if (num_bytes < 0) {
@@ -61,17 +73,21 @@ void handleClient(int client_socket) {
             Comando comando;
             string argumento;
 
+            // Verifica se a mensagem é um comando
             if (isCommand(comando, mensagem)) {
                 argumento = getArgs(mensagem);
+                // Trata o comando recebido
                 tratarComando(client_socket, comando, argumento);
                 continue;
             }
 
+            // Verifica se o cliente está silenciado
             if (mutedClients.find(client_socket) != mutedClients.end()) {
                 cout << "Cliente está silenciado. Mensagem não enviada." << endl;
                 continue;
             }
 
+            // Obtém o apelido do cliente a partir da mensagem
             string nickname = getNickname(client_socket, mensagem);
             if (nickname.empty()) {
                 cout << "Não foi possível obter o apelido do cliente " << client_socket << endl;
@@ -79,13 +95,16 @@ void handleClient(int client_socket) {
                 return;
             }
 
+            // Adiciona o apelido do cliente ao mapeamento de sockets e apelidos
             if (userSocket.count(client_socket) == 0) {
                 userSocket[client_socket] = nickname;
             }
 
+            // Obtém o canal atual do cliente
             string channelName = userChannels[client_socket];
             if (channels.find(channelName) != channels.end()) {
                 Channel& channel = channels[channelName];
+                // Envia a mensagem para todos os usuários no canal
                 for (int socket : channel.users) {
                     cout << "Enviando '" << mensagem << "' para " << socket << endl;
                     send(socket, mensagem.c_str(), mensagem.length(), 0);
@@ -93,26 +112,32 @@ void handleClient(int client_socket) {
             }
         }
     }
-
+    // Remove o cliente ao finalizar a conexão
     removeUser(client_socket);
 }
 
+// Função de tratamento de sinal do servidor
 void signalHandlerServer(int signal) {
     if (signal == SIGINT) {
         cout << "Encerrando o servidor..." << endl;
 
+        // Fecha os sockets dos clientes conectados
         for (int i = 0; i < clientSockets.size(); i++) {
             close(clientSockets[i]);
         }
 
+        // Fecha o socket do servidor
         close(server_socket);
         exit(signal);
     }
 }
 
+// Silencia o cliente com o apelido fornecido
 void muteClient(const string& nickname) {
+    // Procura o socket do cliente com base no apelido
     for (const auto& pair : userSocket) {
         if (pair.second == nickname) {
+            // Insere o socket do cliente no conjunto de clientes silenciados
             mutedClients.insert(pair.first);
             cout << "Cliente " << nickname << " foi silenciado." << endl;
             return;
@@ -121,8 +146,10 @@ void muteClient(const string& nickname) {
     cout << "Cliente " << nickname << " não encontrado." << endl;
 }
 
+// Remove o silenciamento do cliente com o apelido fornecido
 void unmuteClient(const string& nickname) {
     int socketToUnmute = -1;
+     // Procura o socket do cliente silenciado com base no apelido
     for (int socket : mutedClients) {
         if (userSocket[socket] == nickname) {
             socketToUnmute = socket;
@@ -131,6 +158,7 @@ void unmuteClient(const string& nickname) {
     }
 
     if (socketToUnmute != -1) {
+        // Remove o socket do cliente do conjunto de clientes silenciados
         mutedClients.erase(socketToUnmute);
         cout << "Silenciamento removido para o cliente " << nickname << "." << endl;
     } else {
@@ -138,10 +166,12 @@ void unmuteClient(const string& nickname) {
     }
 }
 
+// Verifica se o cliente é um administrador
 bool isAdmin(int client_socket) {
     string nickname = userSocket[client_socket];
     if (channels.find(userChannels[client_socket]) != channels.end()) {
         const Channel& channel = channels[userChannels[client_socket]];
+        // Verifica se o apelido do cliente corresponde ao apelido do administrador do canal
         if (channel.admin == nickname) {
             return true;
         }
@@ -149,6 +179,7 @@ bool isAdmin(int client_socket) {
     return false;
 }
 
+// Conecta o cliente ao canal fornecido
 void joinChannel(const string& channel, int client_socket) {
     if (channels.find(channel) == channels.end()) {
         // Se o canal não existir, crie uma nova estrutura Channel
@@ -179,15 +210,17 @@ void joinChannel(const string& channel, int client_socket) {
 }
 
 
-
+// Obtém o endereço IP do usuário com base no apelido fornecido
 string getIPFromUsername(const string& nickname) {
     for (const auto& pair : userSocket) {
         if (pair.second == nickname) {
             struct sockaddr_in clientAddress;
             socklen_t clientAddressLength = sizeof(clientAddress);
+            // Obtém as informações do endereço do cliente
             getpeername(pair.first, (struct sockaddr*)&clientAddress, &clientAddressLength);
 
             char clientIP[INET_ADDRSTRLEN];
+            // Converte o endereço IP para uma string legível
             inet_ntop(AF_INET, &(clientAddress.sin_addr), clientIP, INET_ADDRSTRLEN);
             string ip = clientIP;
             return " Endereço IP do usuário: " + ip;
@@ -196,6 +229,7 @@ string getIPFromUsername(const string& nickname) {
     return "Usuário não encontrado";
 }
 
+// Expulsa o usuário com o apelido fornecido do canal atual
 void kickUser(int client_socket, const string& argumento) {
     string message = "server: " + argumento + " foi expulso do chat.\n";
     string channelName = userChannels[client_socket];
@@ -203,17 +237,20 @@ void kickUser(int client_socket, const string& argumento) {
     if (channels.find(channelName) != channels.end()) {
         Channel& channel = channels[channelName];
 
+        // Remove o socket do usuário da lista de usuários e de usuários convidados do canal
         channel.users.erase(remove(channel.users.begin(), channel.users.end(), client_socket), channel.users.end());
         channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), client_socket), channel.invitedUsers.end());
 
         send(client_socket, message.c_str(), message.length(), 0);
 
+        // Envia a mensagem de expulsão para os demais usuários do canal
         for (int socket : channel.users) {
             send(socket, message.c_str(), message.length(), 0);
         }
     }
 }
 
+// Convida o usuário com o apelido fornecido para o canal especificado
 void inviteUser(const string& channelName, int client_socket, const string& nickname) {
     if (channels.find(channelName) != channels.end()) {
         Channel& channel = channels[channelName];
@@ -221,8 +258,10 @@ void inviteUser(const string& channelName, int client_socket, const string& nick
             for (const auto& pair : userSocket) {
                 if (pair.second == nickname) {
                     int invitedClientSocket = pair.first;
+                    // Adiciona o socket do cliente à lista de usuários convidados do canal
                     channel.invitedUsers.push_back(invitedClientSocket);
                     string message = "server: Você foi convidado para o canal " + channelName + "\n";
+                    // Envia uma mensagem de convite para o cliente convidado
                     send(invitedClientSocket, message.c_str(), message.length(), 0);
                     return;
                 }
@@ -237,7 +276,7 @@ void inviteUser(const string& channelName, int client_socket, const string& nick
     send(client_socket, message.c_str(), message.length(), 0);
 }
 
-
+// Obtém a lista de usuários convidados para o canal especificado
 vector<int> listInvitedUsers(const string& channelName) {
     vector<int> invitedUsers;
 
@@ -249,6 +288,7 @@ vector<int> listInvitedUsers(const string& channelName) {
     return invitedUsers;
 }
 
+// Atualiza usuários convidados
 void updateInvitedUsers(int client_socket) {
     for (auto& pair : channels) {
         Channel& channel = pair.second;
@@ -256,13 +296,18 @@ void updateInvitedUsers(int client_socket) {
     }
 }
 
+// Remove o cliente do servidor
 void removeUser(int client_socket) {
     close(client_socket);
+    // Remove o socket do cliente do vetor de sockets dos clientes conectados
     clientSockets.erase(remove(clientSockets.begin(), clientSockets.end(), client_socket), clientSockets.end());
+    // Remove o socket do cliente do mapeamento de sockets e apelidos
     userSocket.erase(client_socket);
+    // Remove o socket do cliente do mapeamento de sockets e canais
     userChannels.erase(client_socket);
 }
 
+// Verifica se a mensagem recebida é um comando válido
 int isCommand(Comando& comando, string mensagem) {
     if (mensagem == "/ping") {
         comando = Comando::Ping;
@@ -296,11 +341,13 @@ int isCommand(Comando& comando, string mensagem) {
     return false;
 }
 
+// Obtém os argumentos de um comando a partir da mensagem recebida
 string getArgs(string mensagem) {
     string argumento = mensagem.substr(mensagem.find(' ') + 1);
     return argumento;
 }
 
+// Trata o comando recebido do cliente
 void tratarComando(int client_socket, Comando comando, const string& argumento) {
     switch (comando) {
         case Comando::Ping:
