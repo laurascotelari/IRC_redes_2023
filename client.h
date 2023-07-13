@@ -23,7 +23,9 @@ enum class Comando {
     Kick,
     Mute,
     Unmute,
-    Whois
+    Whois,
+    Invite,
+    Uninvite
 };
 
 extern int client_socket;

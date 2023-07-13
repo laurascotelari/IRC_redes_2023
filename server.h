@@ -27,14 +27,24 @@ enum class Comando {
     Kick,
     Mute,
     Unmute,
-    Whois
+    Whois,
+    Invite,   // Adicionar o comando "Invite"
+    Uninvite  // Adicionar o comando "Uninvite"
+};
+
+struct Channel {
+    string name;
+    vector<int> users;
+    vector<int> invitedUsers; // Novo vetor para usuários convidados
 };
 
 extern vector<int> clientSockets;
 extern unordered_set<int> mutedClients;
 extern map<int, string> userSocket;
 extern int server_socket;
+extern map<string, Channel> channels;
 
+bool isUserInvited(int client_socket, const string& channelName);
 string getNickname(int client_socket, string buffer);
 void handleClient(int client_socket);
 void signalHandlerServer(int signal);
@@ -43,6 +53,7 @@ void unmuteClient(const string& nickname);
 int isCommand(Comando& comando, string mensagem);
 void removeUser(int client_socket);
 string getArgs(string mensagem);
-void joinChannel(string channel, int client_socket);
+void joinChannel(const string& channel, int client_socket);
 void tratarComando(int client_socket, Comando comando, const string& argumento);
-void kickUser(const string& argumento);
+void kickUser(int client_socket, const string& argumento);
+

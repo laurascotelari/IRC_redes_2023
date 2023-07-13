@@ -159,7 +159,14 @@ int isCommand(Comando& comando, string mensagem) {
         comando = Comando::Whois;
         return true;
     }
-
+    else if (mensagem.substr(0,8) == "/invite ") {
+        comando = Comando::Invite;
+        return true;
+    }
+    else if (mensagem.substr(0,10) == "/uninvite ") {
+        comando = Comando::Uninvite;
+        return true;
+    }
     return false; // Não é um comando
 }
 
@@ -238,7 +245,23 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
                 send(client_socket, comandoWhois.c_str(), comandoWhois.length(), 0);
             }
             break;
-
+        
+        case Comando::Invite:
+            {
+                string nomeCanal = argumento.substr(0, argumento.find(' '));
+                string nickname = argumento.substr(argumento.find(' ') + 1);
+                string comandoInvite = "/invite " + nomeCanal + " " + nickname;
+                send(client_socket, comandoInvite.c_str(), comandoInvite.length(), 0);
+            }
+            break;
+        case Comando::Uninvite:
+            {
+                string nomeCanal = argumento.substr(0, argumento.find(' '));
+                string nickname = argumento.substr(argumento.find(' ') + 1);
+                string comandoUninvite = "/uninvite " + nomeCanal + " " + nickname;
+                send(client_socket, comandoUninvite.c_str(), comandoUninvite.length(), 0);
+            }
+            break;
         default:
             cout << "Comando inválido." << endl;
             break;
