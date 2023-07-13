@@ -238,22 +238,6 @@ void inviteUser(const string& channelName, int client_socket, const string& nick
 }
 
 
-void uninviteUser(const string& channelName, const string& nickname) {
-    for (auto& pair : userSocket) {
-        if (pair.second == nickname) {
-            int client_socket = pair.first;
-            if (channels.find(channelName) != channels.end()) {
-                Channel& channel = channels[channelName];
-                channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), client_socket), channel.invitedUsers.end());
-                string message = "server: Você não está mais convidado para o canal " + channelName + "\n";
-                send(client_socket, message.c_str(), message.length(), 0);
-                return;
-            }
-        }
-    }
-    cout << "Cliente " << nickname << " não encontrado ou canal " << channelName << " não existe." << endl;
-}
-
 vector<int> listInvitedUsers(const string& channelName) {
     vector<int> invitedUsers;
 
@@ -306,9 +290,6 @@ int isCommand(Comando& comando, string mensagem) {
         return true;
     } else if (mensagem.substr(0, 8) == "/invite ") {
         comando = Comando::Invite;
-        return true;
-    } else if (mensagem.substr(0, 10) == "/uninvite ") {
-        comando = Comando::Uninvite;
         return true;
     }
 
@@ -417,19 +398,6 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
         }
     }
     break;
-
-
-        case Comando::Uninvite:
-        {
-            if (isAdmin(client_socket)) {
-                string channelName = argumento;
-                uninviteUser(channelName, argumento);
-            } else {
-                string mensagem = "server: Comando /uninvite é permitido apenas para administradores.";
-                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
-            }
-        }
-        break;
 
         default:
             cout << "Comando inválido." << endl;

@@ -32,7 +32,6 @@ int main(int argc, char **argv) {
     cout << "\t/unmute nomeUsuario - Retira o mute de um usuário\n";
     cout << "\t/whois nomeUsuario - Retorna o endereço IP do usuário apenas para o administrador\n";
     cout << "\t/invite nomeCanal nomeUsuario - Convida um usuário para o canal\n";
-    cout << "\t/uninvite nomeCanal nomeUsuario - Expulsa usuário de um canal\n";
 
 
     string mensagemLida;
