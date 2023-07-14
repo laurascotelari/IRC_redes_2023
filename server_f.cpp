@@ -231,52 +231,38 @@ string getIPFromUsername(const string& nickname) {
 
 // Expulsa o usuário com o apelido fornecido do canal atual
 void kickUser(int client_socket, const string& argumento) {
-    string message;
+    string message = "server: " + argumento + " foi expulso do chat.\n";
     string channelName = userChannels[client_socket];
 
     if (channels.find(channelName) != channels.end()) {
         Channel& channel = channels[channelName];
-
-        // Verifica se o cliente que chamou o comando é o administrador do canal
-        if (!isAdmin(client_socket)) {
-            message = "server: Você não tem permissão para usar o comando /kick.\n";
-            send(client_socket, message.c_str(), message.length(), 0);
-            return;
-        }
-
-        // Verifica se o usuário a ser expulso existe no canal
-        int userSocketToKick = -1;
-        for (int socket : channel.users) {
-            if (userSocket[socket] == argumento) {
-                userSocketToKick = socket;
-                break;
+        int kickedSocket = -1;
+        for (const auto& pair : userSocket) {
+                if (pair.second == argumento) {
+                    kickedSocket = pair.first;
+                }
             }
+
+        if (kickedSocket == -1)
+        {
+            cout << "Usuário " << argumento << " não encontrado para ser kickado." << endl;
         }
+        else
+        {
+            // Envia a mensagem de expulsão para os demais usuários do canal
+            for (int socket : channel.users) {
+                send(socket, message.c_str(), message.length(), 0);
+            }
+            message = "/kick";
+            // Remove o socket do usuário da lista de usuários e de usuários convidados do canal
+            channel.users.erase(remove(channel.users.begin(), channel.users.end(), kickedSocket), channel.users.end());
+            channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), kickedSocket), channel.invitedUsers.end());
 
-        if (userSocketToKick != -1) {
-            // Envia mensagem informando que o usuário foi expulso para o cliente que chamou o comando
-            message = "server: " + argumento + " foi expulso do canal.\n";
-            send(client_socket, message.c_str(), message.length(), 0);
-
-            // Envia mensagem informando que o usuário foi expulso para os demais usuários do canal
-            message = "server: Você foi expulso do canal por " + userSocket[client_socket] + ".\n";
-            send(userSocketToKick, message.c_str(), message.length(), 0);
-
-            // Remove o usuário da lista de usuários do canal
-            channel.users.erase(remove(channel.users.begin(), channel.users.end(), userSocketToKick), channel.users.end());
-
-            // Remove o usuário da lista de usuários convidados do canal
-            channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), userSocketToKick), channel.invitedUsers.end());
-        } else {
-            message = "server: Usuário " + argumento + " não encontrado no canal.\n";
-            send(client_socket, message.c_str(), message.length(), 0);
+            send(kickedSocket, message.c_str(), message.length(), 0);
         }
-    } else {
-        message = "server: Você não está em nenhum canal.\n";
-        send(client_socket, message.c_str(), message.length(), 0);
+        
     }
 }
-
 
 // Obtém a lista de clientes conectados
 vector<int> getConnectedUsers() {
