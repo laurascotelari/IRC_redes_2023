@@ -24,7 +24,8 @@ enum class Comando {
     Mute,
     Unmute,
     Whois,
-    Invite
+    Invite,
+    ConsultUsers
 };
 
 extern int client_socket;

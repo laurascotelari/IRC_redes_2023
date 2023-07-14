@@ -28,7 +28,8 @@ enum class Comando {
     Mute,
     Unmute,
     Whois,
-    Invite
+    Invite,
+    ConsultUsers
 };
 
 struct Channel {

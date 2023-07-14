@@ -250,6 +250,25 @@ void kickUser(int client_socket, const string& argumento) {
     }
 }
 
+// Obtém a lista de clientes conectados
+vector<int> getConnectedUsers() {
+    return clientSockets;
+}
+
+// Envia a lista de clientes conectados para o administrador
+void sendConnectedUsers(int client_socket, const vector<int>& connectedUsers) {
+    string message = "server: Clientes conectados disponíveis para convite:\n";
+
+    // Percorre a lista de clientes conectados e envia suas informações
+    for (int socket : connectedUsers) {
+        string nickname = userSocket[socket];
+        message += "Cliente " + to_string(socket) + ": " + nickname + "\n";
+    }
+
+    send(client_socket, message.c_str(), message.length(), 0);
+}
+
+
 // Convida o usuário com o apelido fornecido para o canal especificado
 void inviteUser(const string& channelName, int client_socket, const string& nickname) {
     if (channels.find(channelName) != channels.end()) {
@@ -335,6 +354,9 @@ int isCommand(Comando& comando, string mensagem) {
         return true;
     } else if (mensagem.substr(0, 8) == "/invite ") {
         comando = Comando::Invite;
+        return true;
+    } else if (mensagem == "/consultUsers") {
+        comando = Comando::ConsultUsers;
         return true;
     }
 
@@ -428,24 +450,39 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
         break;
 
         case Comando::Invite:
-    {
-        if (isAdmin(client_socket)) {
-            size_t pos = argumento.find(' ');
-            if (pos != string::npos) {
-                string channelName = argumento.substr(0, pos);
-                string nickname = argumento.substr(pos + 1);
-                inviteUser(channelName, client_socket, nickname);
+        {
+            if (isAdmin(client_socket)) {
+                size_t pos = argumento.find(' ');
+                if (pos != string::npos) {
+                    string channelName = argumento.substr(0, pos);
+                    string nickname = argumento.substr(pos + 1);
+                    inviteUser(channelName, client_socket, nickname);
+                } else {
+                    string mensagem = "server: Uso incorreto do comando /invite. Formato esperado: /invite <canal> <apelido>";
+                    send(client_socket, mensagem.c_str(), mensagem.length(), 0);
+                }
             } else {
-                string mensagem = "server: Uso incorreto do comando /invite. Formato esperado: /invite <canal> <apelido>";
+                string mensagem = "server: Comando /invite é permitido apenas para administradores.";
                 send(client_socket, mensagem.c_str(), mensagem.length(), 0);
             }
-        } else {
-            string mensagem = "server: Comando /invite é permitido apenas para administradores.";
-            send(client_socket, mensagem.c_str(), mensagem.length(), 0);
         }
-    }
-    break;
+            break;
 
+        case Comando::ConsultUsers:
+        {
+            if (isAdmin(client_socket)) {
+                // Chame uma função para obter a lista de clientes conectados
+                vector<int> connectedUsers = getConnectedUsers();
+
+                // Envie a lista de clientes para o administrador
+                sendConnectedUsers(client_socket, connectedUsers);
+            } else {
+                string mensagem = "server: Comando /consultUsers é permitido apenas para administradores.";
+                send(client_socket, mensagem.c_str(), mensagem.length(), 0);
+            }
+        }
+            break;
+            
         default:
             cout << "Comando inválido." << endl;
             break;

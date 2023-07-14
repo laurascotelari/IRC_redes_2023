@@ -162,6 +162,9 @@ int isCommand(Comando& comando, string mensagem) {
     else if (mensagem.substr(0,8) == "/invite ") {
         comando = Comando::Invite;
         return true;
+    } else if (mensagem == "/consultUsers") {
+        comando = Comando::ConsultUsers;
+        return true;
     }
     return false; // Não é um comando
 }
@@ -250,6 +253,14 @@ void tratarComando(int client_socket, Comando comando, const string& argumento) 
                 send(client_socket, comandoInvite.c_str(), comandoInvite.length(), 0);
             }
             break;
+
+        case Comando::ConsultUsers:
+            {
+                string comandoInvite = "/consultUsers";
+                send(client_socket, comandoInvite.c_str(), comandoInvite.length(), 0);
+            }
+            break;
+
         default:
             cout << "Comando inválido." << endl;
             break;
@@ -300,6 +311,7 @@ void recebeMensagem(int client_socket){
         }else{
             //significa que o usuario foi chutado
             string message = buffer;
+            
             if(message == "/kick"){
                 cout << "\t\t" << "Você foi chutado!" << endl;
                 exit(0);
