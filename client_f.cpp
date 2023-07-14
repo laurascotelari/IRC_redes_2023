@@ -311,8 +311,7 @@ void recebeMensagem(int client_socket){
         }else{
             //significa que o usuario foi chutado
             string message = buffer;
-            
-            if(message == "/kick"){
+            if(message.substr(message.find('\n') + 1) == "/kick"){
                 cout << "\t\t" << "Você foi chutado!" << endl;
                 exit(0);
             }else{

@@ -236,17 +236,33 @@ void kickUser(int client_socket, const string& argumento) {
 
     if (channels.find(channelName) != channels.end()) {
         Channel& channel = channels[channelName];
+        int kickedSocket = -1;
+        for (const auto& pair : userSocket) {
+                if (pair.second == argumento) {
+                    kickedSocket = pair.first;
+                }
+            }
 
-        // Remove o socket do usuário da lista de usuários e de usuários convidados do canal
-        channel.users.erase(remove(channel.users.begin(), channel.users.end(), client_socket), channel.users.end());
-        channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), client_socket), channel.invitedUsers.end());
-
-        send(client_socket, message.c_str(), message.length(), 0);
-
-        // Envia a mensagem de expulsão para os demais usuários do canal
-        for (int socket : channel.users) {
-            send(socket, message.c_str(), message.length(), 0);
+        if (kickedSocket == -1)
+        {
+            cout << "Usuário " << argumento << " não encontrado para ser kickado." << endl;
         }
+        else
+        {
+            // Envia a mensagem de expulsão para os demais usuários do canal
+            for (int socket : channel.users) {
+                send(socket, message.c_str(), message.length(), 0);
+            }
+            message = "/kick";
+            // Remove o socket do usuário da lista de usuários e de usuários convidados do canal
+            channel.users.erase(remove(channel.users.begin(), channel.users.end(), kickedSocket), channel.users.end());
+            channel.invitedUsers.erase(remove(channel.invitedUsers.begin(), channel.invitedUsers.end(), kickedSocket), channel.invitedUsers.end());
+
+            send(kickedSocket, message.c_str(), message.length(), 0);
+        }
+        
+
+        
     }
 }
 
