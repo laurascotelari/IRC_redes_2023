@@ -7,5 +7,6 @@
 |   Maria Júlia Soares De Grandi|  12542501 |   maju.degrandi@usp.br     |
 ### Objetivo
 Implementar um cliente e servidor IRC (Internet Relay Chat) que utilize protocolos TCP/IP e suporte múltiplos clientes conectados a um único servidor.
-###Link do Vídeo
+
+### Link do Vídeo
 https://drive.google.com/file/d/1EAS7av8kG3FlIyl7sMP0ax-dlzYINXXY/view?usp=drive_link
